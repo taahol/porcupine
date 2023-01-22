@@ -32,4 +32,4 @@ class EnchantHighlighter(BaseHighlighter):
         for error in checker:
             wordstart = error.wordpos
             wordend = wordstart + len(error.word)
-            self.textwidget.tag_add("Token.Keyword", f"{start}+{wordstart}c",f"{start}+{wordend}c")
+            self.textwidget.tag_add("Token.Keyword", f"{start}+{wordstart}c", f"{start}+{wordend}c")

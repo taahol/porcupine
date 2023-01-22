@@ -17,9 +17,9 @@ from pygments.lexer import LexerMeta
 from porcupine import get_tab_manager, tabs, textutils, utils
 
 from .base_highlighter import BaseHighlighter
+from .enchant_highlighter import EnchantHighlighter
 from .pygments_highlighter import PygmentsHighlighter
 from .tree_sitter_highlighter import TreeSitterHighlighter
-from .enchant_highlighter import EnchantHighlighter
 
 log = logging.getLogger(__name__)
 
