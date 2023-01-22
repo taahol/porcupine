@@ -191,6 +191,11 @@
 filename_patterns = ["*.txt"]
 pygments_lexer = "pygments.lexers.TextLexer"
 
+["suomi"]
+pygments_lexer = "pygments.lexers.TextLexer"
+syntax_highlighter = "enchant"
+language_iso_code = "fi_FI"
+
 [Python]
 filename_patterns = ["*.py", "*.pyw"]
 shebang_regex = 'python(\d(\.\d)?)?$'

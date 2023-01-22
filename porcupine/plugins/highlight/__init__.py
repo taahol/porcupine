@@ -19,6 +19,7 @@ from porcupine import get_tab_manager, tabs, textutils, utils
 from .base_highlighter import BaseHighlighter
 from .pygments_highlighter import PygmentsHighlighter
 from .tree_sitter_highlighter import TreeSitterHighlighter
+from .enchant_highlighter import EnchantHighlighter
 
 log = logging.getLogger(__name__)
 
@@ -43,6 +44,10 @@ class HighlighterManager:
             lexer_class = self._tab.settings.get("pygments_lexer", LexerMeta)
             log.info(f"creating a pygments highlighter with lexer class {lexer_class}")
             self._highlighter = PygmentsHighlighter(self._tab.textwidget, lexer_class())
+        elif highlighter_name == "enchant":
+            language_code = self._tab.settings.get("language_iso_code", str)
+            log.info(f"creating an enchant spellchecker with language {language_code}")
+            self._highlighter = EnchantHighlighter(self._tab.textwidget, language_code)
         else:
             log.warning(
                 f"bad syntax_highlighter setting {repr(highlighter_name)}, assuming 'pygments'"
@@ -97,11 +102,13 @@ def on_new_filetab(tab: tabs.FileTab) -> None:
     tab.settings.add_option(
         "tree_sitter_language_name", default="<tree_sitter_language_name not set>"
     )
+    tab.settings.add_option("language_iso_code", default="C")
 
     manager = HighlighterManager(tab)
     tab.bind("<<TabSettingChanged:pygments_lexer>>", manager.on_config_changed, add=True)
     tab.bind("<<TabSettingChanged:syntax_highlighter>>", manager.on_config_changed, add=True)
     tab.bind("<<TabSettingChanged:tree_sitter_language_name>>", manager.on_config_changed, add=True)
+    tab.bind("<<TabSettingChanged:language_iso_code>>", manager.on_config_changed, add=True)
     manager.on_config_changed()
 
     utils.bind_with_data(tab.textwidget, "<<ContentChanged>>", manager.on_change_event, add=True)
