@@ -161,6 +161,10 @@ class _ChangeTracker:
                 %(actual_widget)s see $cleaned_index
                 return
             }
+            if {$subcommand == "tag" && [lindex $args 1] == "add"} {
+                event generate %(fake_widget)s <<SpellCheckHook>> \
+                  -data $args
+            }
 
             # only these subcommands can change the text, but they can also
             # move the cursor by changing the text before the cursor
