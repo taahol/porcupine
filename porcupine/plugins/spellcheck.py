@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import itertools
 import tkinter
-from typing import List
+from typing import Any, List, Tuple
 
 import enchant
 from enchant.checker import SpellChecker
@@ -18,42 +18,48 @@ class EnchantSpellChecker:
         self.tab = tab
         utils.bind_with_data(tab.textwidget, "<<SpellCheckHook>>", self.check_spelling)
 
-    def limit_to_visible_part(self, indices: List[str]) -> tuple[str, str]:
+    def limit_to_visible_part(self, start: str, end: str) -> Tuple[str, str]:
         tw = self.tab.textwidget
-        if tw.compare(indices[0], "<", tw.index("@0,0")):
+        if tw.compare(start, "<", tw.index("@0,0")):
             start = tw.index("@0,0")
-        else:
-            start = indices[0]
-        if tw.compare(indices[1], ">", tw.index("@0,10000")):
+        if tw.compare(end, ">", tw.index("@0,10000")):
             end = tw.index("@0,10000")
-        else:
-            end = indices[1]
         return (start, end)
 
     def check_spelling(self, event: utils.EventWithData) -> None:
-        checker = self.checker
-        if not checker:
+        if not self.checker:
             return
-        tag = event.data_string
-        if tag.startswith("tag add Token.Comment") or tag.startswith("tag add Token.Text"):
-            start, end = self.limit_to_visible_part(get_main_window().tk.splitlist(tag)[3:])
+
+        def _check_text(start: str, end: str) -> List[Tuple[str, int, str, str]]:
             text = self.tab.textwidget.get(start, end)
-            checker.set_text(text)
-            self.tab.event_generate(
-                "<<SetUnderlines>>",
-                data=underlines.Underlines(
-                    id="spelling",
-                    underline_list=[
-                        underlines.Underline(
-                            start=f"{start}+{error.wordpos}c",
-                            end=f"{start}+{error.wordpos+len(error.word)}c",
-                            message=", ".join(self.dictionary.suggest(error.word)),
-                            color="red",
-                        )
-                        for error in checker
-                    ],
-                ),
-            )
+            if text.strip():
+                # print(text)
+                self.checker.set_text(text)
+                return [(error.word, error.wordpos, start, end) for error in self.checker]
+            return []
+
+        tags = event.data_string
+        if tags.startswith("tag add Token.Comment") or tags.startswith("tag add Token.Text"):
+            underline_list = [
+                underlines.Underline(
+                    f"{start}+{wordpos}c",
+                    f"{start}+{wordpos+len(word)}c",
+                    word,  # "Use autocompletion to see suggestions.",
+                    "red",
+                )
+                for error in (
+                    _check_text(start, end)
+                    for start, end in map(
+                        self.limit_to_visible_part,
+                        *[iter(get_main_window().tk.splitlist(tags)[3:])] * 2,
+                    )
+                )
+                for word, wordpos, start, end in error
+            ]
+            if underline_list:
+                self.tab.event_generate(
+                    "<<SetUnderlines>>", data=underlines.Underlines("spelling", underline_list)
+                )
 
     #                self.textwidget.master.master.event_generate(
     #                    '<<SetUnderlines>>',
@@ -63,6 +69,17 @@ class EnchantSpellChecker:
         language = self.tab.settings.get("language_iso_code", str)
         self.checker = SpellChecker(language)
         self.dictionary = enchant.Dict(language)
+
+    def get_suggestions(self, junk: object) -> str | None:
+        # TODO: convert to autocompletion
+        ranges = self.tab.textwidget.tag_ranges("underline:spelling")
+        for start, end in zip(ranges[0::2], ranges[1::2]):
+            if self.tab.textwidget.compare(start, "<=", "insert") and self.tab.textwidget.compare(
+                "insert", "<=", end
+            ):
+                print(self.dictionary.suggest(self.tab.textwidget.get(start, end)))
+                return "break"
+        return None
 
 
 def _add_language_menuitem(lang: str, tk_var: tkinter.StringVar) -> None:
@@ -82,6 +99,7 @@ def on_new_filetab(tab: tabs.FileTab) -> None:
     languages_var.set(language)
     chkr = EnchantSpellChecker(tab, language)
     tab.bind("<<TabSettingChanged:language_iso_code>>", chkr.on_config_changed, add=True)
+    tab.textwidget.bind("<<JumpToDefinitionRequest>>", chkr.get_suggestions, add=True)
 
 
 def setup() -> None:
