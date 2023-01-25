@@ -82,24 +82,35 @@ class EnchantSpellChecker:
         return None
 
 
+language_var: tkinter.StringVar
+
+
+def on_new_filetab(tab: tabs.FileTab) -> None:
+    tab.settings.add_option("language_iso_code", default="")
+    language = tab.settings.get("language_iso_code", str)
+    language_var.set(language)
+    chkr = EnchantSpellChecker(tab, language)
+    tab.bind("<<TabSettingChanged:language_iso_code>>", chkr.on_config_changed, add=True)
+    tab.textwidget.bind("<<JumpToDefinitionRequest>>", chkr.get_suggestions, add=True)
+
+
+def _sync_language_menu(event: object = None) -> None:
+    tab = get_tab_manager().select()
+    language: str = ""
+    if isinstance(tab, tabs.FileTab):
+        try:
+            language = tab.settings.get("language_iso_code", str)
+        except KeyError:
+            pass
+    language_var.set(language)
+
+
 def _add_language_menuitem(lang: str, tk_var: tkinter.StringVar) -> None:
     menubar.get_menu("Languages").add_radiobutton(
         label=lang,
         command=lambda: menubar.get_filetab().settings.set("language_iso_code", lang),
         variable=tk_var,
     )
-
-
-languages_var: tkinter.StringVar
-
-
-def on_new_filetab(tab: tabs.FileTab) -> None:
-    tab.settings.add_option("language_iso_code", default="")
-    language = tab.settings.get("language_iso_code", str)
-    languages_var.set(language)
-    chkr = EnchantSpellChecker(tab, language)
-    tab.bind("<<TabSettingChanged:language_iso_code>>", chkr.on_config_changed, add=True)
-    tab.textwidget.bind("<<JumpToDefinitionRequest>>", chkr.get_suggestions, add=True)
 
 
 def setup() -> None:
@@ -110,8 +121,9 @@ def setup() -> None:
         if "_" in lang or lang + "_" not in (l[: len(lang) + 1] for l in langs)
     ]
     if supported_languages:
-        global languages_var
-        languages_var = tkinter.StringVar()
+        global language_var
+        language_var = tkinter.StringVar()
         for language in supported_languages:
-            _add_language_menuitem(language, languages_var)
+            _add_language_menuitem(language, language_var)
         get_tab_manager().add_filetab_callback(on_new_filetab)
+        get_tab_manager().bind("<<NotebookTabChanged>>", _sync_language_menu, add=True)
